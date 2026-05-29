@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lynx // Modern URL Shortener & Analytics</title>
+    <meta name="description" content="Shorten your long links into premium, custom, and trackable short URLs with real-time analytics.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <!-- Background Blob Animations -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-bolt logo-icon"></i>
+                <span class="logo-text">LYNX</span>
+            </div>
+            <div class="system-status">
+                <span class="status-dot"></span>
+                <span class="status-text">MySQL Active</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Hero Section -->
+            <section class="hero-section">
+                <h1>Shorten. Share. Track.</h1>
+                <p>Create clean, memorable, and high-performing links with instant redirection analytics.</p>
+            </section>
+
+            <!-- Shorten Card -->
+            <section class="card shorten-card">
+                <form id="shorten-form">
+                    <div class="input-group main-input-group">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input type="url" id="long-url" placeholder="Paste your long link here..." required autocomplete="off">
+                        <button type="submit" id="submit-btn" class="btn btn-primary">
+                            <span>Shorten Link</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+
+                    <!-- Accordion for Advanced Settings -->
+                    <div class="advanced-settings">
+                        <button type="button" id="advanced-toggle" class="advanced-toggle-btn">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Advanced Options (Custom Alias, Expiration)</span>
+                            <i class="fa-solid fa-chevron-down chevron-icon"></i>
+                        </button>
+
+                        <div id="advanced-options-panel" class="advanced-options-panel">
+                            <div class="grid-2-col">
+                                <div class="input-wrapper">
+                                    <label for="custom-alias">Custom Alias <small>(Optional)</small></label>
+                                    <div class="alias-input-group">
+                                        <span class="prefix-url" id="prefix-url-label">lynx/</span>
+                                        <input type="text" id="custom-alias" placeholder="my-custom-link" autocomplete="off" minlength="3" maxlength="30">
+                                    </div>
+                                    <span class="input-help">Alphanumeric, dashes, and underscores only.</span>
+                                </div>
+
+                                <div class="input-wrapper">
+                                    <label for="expiration-select">Link Expiration</label>
+                                    <select id="expiration-select">
+                                        <option value="never" selected>Never Expire</option>
+                                        <option value="300">5 Minutes</option>
+                                        <option value="3600">1 Hour</option>
+                                        <option value="86400">24 Hours</option>
+                                        <option value="604800">7 Days</option>
+                                    </select>
+                                    <span class="input-help">Automatically deletes or disables the link.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Result Card (Hidden by default) -->
+            <section id="result-card" class="card result-card hidden">
+                <div class="result-header">
+                    <div class="success-icon-badge">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <h3>Link Shortened Successfully!</h3>
+                </div>
+                <div class="result-body">
+                    <div class="shortened-display-group">
+                        <input type="text" id="shortened-url-display" readonly>
+                        <button id="copy-btn" class="btn btn-secondary" title="Copy to Clipboard">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <div class="qr-container">
+                        <img id="qr-code-img" src="" alt="QR Code" class="hidden">
+                        <div class="qr-placeholder"><i class="fa-solid fa-qrcode fa-spin"></i> Generating QR...</div>
+                        <p class="qr-label">Scan to open or download</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Overview -->
+            <section class="stats-overview">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fa-solid fa-link-slash"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="total-links-count">0</span>
+                        <span class="stat-label">Total Shortened Links</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fa-solid fa-chart-line"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="total-clicks-count">0</span>
+                        <span class="stat-label">Total Clicks Tracked</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Table / Links List -->
+            <section class="card dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-table-list"></i> Active Link Directory</h2>
+                    <button id="refresh-btn" class="btn btn-icon" title="Refresh Link List">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <table id="links-table">
+                        <thead>
+                            <tr>
+                                <th>Short Link</th>
+                                <th>Original Destination</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Clicks</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="links-list-body">
+                            <!-- Populated by JavaScript -->
+                            <tr class="empty-state-row">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <i class="fa-regular fa-folder-open"></i>
+                                        <p>No shortened links found. Create your first link above!</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>&copy; 2026 Lynx Shortener Project. Built with Spring Boot, JPA, and MySQL.</p>
+        </footer>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Modal for Error/Expired URLs (For user redirection landings) -->
+    <div id="error-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-icon error">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h2 id="modal-title">Link Error</h2>
+            <p id="modal-message">The link you are trying to reach is invalid, has expired, or was deleted.</p>
+            <div class="modal-actions">
+                <button id="modal-close-btn" class="btn btn-primary">Go to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="/app.js"></script>
+</body>
+</html>
