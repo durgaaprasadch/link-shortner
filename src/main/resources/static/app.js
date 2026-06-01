@@ -1,15 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
-    const shortenForm = document.getElementById('shorten-form');
+    // DOM Selectors
+    const urlForm = document.getElementById('url-shortener-form');
     const longUrlInput = document.getElementById('long-url');
     const customAliasInput = document.getElementById('custom-alias');
     const expirationSelect = document.getElementById('expiration-select');
-    const submitBtn = document.getElementById('submit-btn');
+    const btnSubmit = document.getElementById('btn-submit');
     
-    const advancedToggle = document.getElementById('advanced-toggle');
-    const advancedSettings = document.querySelector('.advanced-settings');
+    const accordionToggle = document.getElementById('accordion-toggle');
+    const settingsAccordion = document.querySelector('.settings-accordion');
     
-    const resultCard = document.getElementById('result-card');
+    const successPanel = document.getElementById('success-panel');
     const shortenedUrlDisplay = document.getElementById('shortened-url-display');
     const copyBtn = document.getElementById('copy-btn');
     const qrCodeImg = document.getElementById('qr-code-img');
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalLinksCount = document.getElementById('total-links-count');
     const totalClicksCount = document.getElementById('total-clicks-count');
     
-    const linksListBody = document.getElementById('links-list-body');
+    const tableBody = document.getElementById('table-body');
     const refreshBtn = document.getElementById('refresh-btn');
     
     const errorModal = document.getElementById('error-modal');
@@ -26,80 +26,79 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close-btn');
 
-    // State Variables
-    let currentLinks = [];
+    let localLinksCache = [];
 
-    // Set base URL in alias prefix label
-    const setAliasPrefix = () => {
+    // Dynamically set prefix label based on window hostname
+    const initializeAliasPrefix = () => {
         const prefixLabel = document.getElementById('prefix-url-label');
         if (prefixLabel) {
             const host = window.location.host;
             prefixLabel.textContent = `${host}/`;
         }
     };
-    setAliasPrefix();
+    initializeAliasPrefix();
 
-    // 1. Check for Redirect Errors (URL params)
-    const checkRedirectErrors = () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('error')) {
-            const errorType = urlParams.get('error');
-            const code = urlParams.get('code') || '';
+    // Check for redirection landing errors in URL query params
+    const checkRedirectStatus = () => {
+        const queryParams = new URLSearchParams(window.location.search);
+        if (queryParams.has('error')) {
+            const errorType = queryParams.get('error');
+            const code = queryParams.get('code') || '';
             
-            let title = 'Redirection Error';
-            let message = 'An unexpected error occurred during redirection.';
+            let title = 'Redirection Failed';
+            let message = 'An unknown error occurred during link resolution.';
 
             if (errorType === 'not_found') {
                 title = 'Link Not Found';
-                message = `The shortened code "${code}" does not exist in our database. Please check the URL and try again.`;
+                message = `The short code "${code}" could not be found. Please verify the URL and try again.`;
             } else if (errorType === 'expired') {
                 title = 'Link Expired';
-                message = `The shortened link "${code}" has reached its expiration date and is no longer active.`;
+                message = `The short link "${code}" has reached its expiration date and is no longer available.`;
             }
 
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             errorModal.classList.remove('hidden');
 
-            // Clear URL query parameters without reloading
+            // Strip query parameters from URL bar
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     };
-    checkRedirectErrors();
+    checkRedirectStatus();
 
-    // Modal Close
+    // Close modal event
     modalCloseBtn.addEventListener('click', () => {
         errorModal.classList.add('hidden');
     });
 
-    // 2. Accordion for Advanced Settings
-    advancedToggle.addEventListener('click', () => {
-        advancedSettings.classList.toggle('active');
+    // Expand/Collapse accordion options
+    accordionToggle.addEventListener('click', () => {
+        settingsAccordion.classList.toggle('active');
     });
 
-    // 3. Load Links and Update Dashboard
-    const fetchLinks = async () => {
+    // Fetch active links from the database
+    const loadLinks = async () => {
         try {
             const response = await fetch('/api/v1/urls/list');
-            if (!response.ok) throw new Error('Failed to load links');
-            currentLinks = await response.json();
-            renderLinksTable(currentLinks);
-            animateStats(currentLinks);
+            if (!response.ok) throw new Error('API server error');
+            localLinksCache = await response.json();
+            renderTable(localLinksCache);
+            updateDashboardWidgets(localLinksCache);
         } catch (error) {
-            console.error('Error fetching links:', error);
-            showToast('Could not load active links directory', 'error');
+            console.error('API Error:', error);
+            showToast('Unable to fetch links directory from database.', 'error');
         }
     };
 
-    // Render Table Rows
-    const renderLinksTable = (links) => {
+    // Render table rows dynamically
+    const renderTable = (links) => {
         if (links.length === 0) {
-            linksListBody.innerHTML = `
+            tableBody.innerHTML = `
                 <tr class="empty-state-row">
                     <td colspan="6">
                         <div class="empty-state">
                             <i class="fa-regular fa-folder-open"></i>
-                            <p>No shortened links found. Create your first link above!</p>
+                            <p>No links created yet. Paste a link above to get started.</p>
                         </div>
                     </td>
                 </tr>
@@ -107,44 +106,44 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        linksListBody.innerHTML = links.map(link => {
-            const createdDate = new Date(link.createdAt).toLocaleDateString(undefined, {
+        tableBody.innerHTML = links.map(link => {
+            const dateStr = new Date(link.createdAt).toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
 
-            let expiresContent = '<span class="badge badge-never">Never</span>';
+            let expiryLabel = '<span class="badge badge-never">Never</span>';
             if (link.expiresAt) {
                 const expiryDate = new Date(link.expiresAt);
                 if (expiryDate < new Date()) {
-                    expiresContent = '<span class="badge badge-expired">Expired</span>';
+                    expiryLabel = '<span class="badge badge-expired">Expired</span>';
                 } else {
-                    expiresContent = `<span class="badge badge-active">${expiryDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
+                    expiryLabel = `<span class="badge badge-active">${expiryDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
                 }
             }
 
             return `
                 <tr data-code="${link.shortCode}">
                     <td>
-                        <a href="${link.shortUrl}" target="_blank" class="table-link">
+                        <a href="${link.shortUrl}" target="_blank" class="table-link-anchor">
                             ${window.location.host}/${link.shortCode}
-                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.75rem;"></i>
+                            <i class="fa-solid fa-arrow-up-right-from-square inline-icon"></i>
                         </a>
                     </td>
                     <td>
-                        <div class="original-url-cell" title="${link.longUrl}">${link.longUrl}</div>
+                        <div class="destination-text-cell" title="${link.longUrl}">${link.longUrl}</div>
                     </td>
-                    <td>${createdDate}</td>
-                    <td>${expiresContent}</td>
-                    <td><span class="click-badge">${link.clickCount}</span></td>
+                    <td>${dateStr}</td>
+                    <td>${expiryLabel}</td>
+                    <td><span class="click-count-badge">${link.clickCount}</span></td>
                     <td class="text-right">
-                        <div class="action-buttons">
-                            <button class="btn btn-icon btn-copy-table" data-url="${link.shortUrl}" title="Copy Link">
+                        <div class="row-action-buttons">
+                            <button class="btn btn-icon btn-copy-row" data-url="${link.shortUrl}" title="Copy Link">
                                 <i class="fa-regular fa-copy"></i>
                             </button>
-                            <button class="btn btn-icon btn-delete" data-code="${link.shortCode}" title="Delete Link">
+                            <button class="btn btn-icon btn-delete-row" data-code="${link.shortCode}" title="Delete Link">
                                 <i class="fa-regular fa-trash-can"></i>
                             </button>
                         </div>
@@ -153,86 +152,86 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
 
-        // Attach Event Listeners to generated elements
-        document.querySelectorAll('.btn-copy-table').forEach(button => {
-            button.addEventListener('click', (e) => {
+        // Wire event handlers to dynamic row buttons
+        document.querySelectorAll('.btn-copy-row').forEach(button => {
+            button.addEventListener('click', () => {
                 const url = button.getAttribute('data-url');
-                copyToClipboard(url, button);
+                executeClipboardCopy(url, button);
             });
         });
 
-        document.querySelectorAll('.btn-delete').forEach(button => {
-            button.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-delete-row').forEach(button => {
+            button.addEventListener('click', () => {
                 const code = button.getAttribute('data-code');
-                deleteLink(code);
+                confirmAndDeleteLink(code);
             });
         });
     };
 
-    // 4. Animate Stat Counters
-    const animateStats = (links) => {
-        const totalLinks = links.length;
+    // Animate stats cards values
+    const updateDashboardWidgets = (links) => {
+        const total = links.length;
         const totalClicks = links.reduce((sum, link) => sum + link.clickCount, 0);
 
-        animateValue(totalLinksCount, parseInt(totalLinksCount.textContent) || 0, totalLinks, 800);
-        animateValue(totalClicksCount, parseInt(totalClicksCount.textContent) || 0, totalClicks, 800);
+        animateStatCounter(totalLinksCount, parseInt(totalLinksCount.textContent) || 0, total, 600);
+        animateStatCounter(totalClicksCount, parseInt(totalClicksCount.textContent) || 0, totalClicks, 600);
     };
 
-    const animateValue = (obj, start, end, duration) => {
+    const animateStatCounter = (element, start, end, duration) => {
         if (start === end) {
-            obj.textContent = end;
+            element.textContent = end;
             return;
         }
-        let startTimestamp = null;
-        const step = (timestamp) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            obj.textContent = Math.floor(progress * (end - start) + start);
+        let startTime = null;
+        const step = (currentTime) => {
+            if (!startTime) startTime = currentTime;
+            const progress = Math.min((currentTime - startTime) / duration, 1);
+            element.textContent = Math.floor(progress * (end - start) + start);
             if (progress < 1) {
                 window.requestAnimationFrame(step);
             } else {
-                obj.textContent = end;
+                element.textContent = end;
             }
         };
         window.requestAnimationFrame(step);
     };
 
-    // 5. Shorten URL Form Submission
-    shortenForm.addEventListener('submit', async (e) => {
+    // Handle form submission and short link generation
+    urlForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const longUrl = longUrlInput.value.trim();
         const customAlias = customAliasInput.value.trim();
         const expirationValue = expirationSelect.value;
 
-        // Reset submit button state to loading
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `
-            <span>Shortening...</span>
+        // Toggle submit state
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `
+            <span>Processing...</span>
             <i class="fa-solid fa-spinner fa-spin"></i>
         `;
 
-        const payload = { longUrl };
-        if (customAlias) payload.customAlias = customAlias;
-        if (expirationValue !== 'never') payload.ttlSeconds = parseInt(expirationValue);
+        const requestBody = { longUrl };
+        if (customAlias) requestBody.customAlias = customAlias;
+        if (expirationValue !== 'never') requestBody.ttlSeconds = parseInt(expirationValue);
 
         try {
             const response = await fetch('/api/v1/urls/shorten', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(requestBody)
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Validation error');
+                throw new Error(data.message || 'Verification failed');
             }
 
-            // Success display
+            // Set result value
             shortenedUrlDisplay.value = data.shortUrl;
             
-            // Generate QR Code via qrserver API
+            // Fetch QR Code via open API
             qrCodeImg.classList.add('hidden');
             qrPlaceholder.classList.remove('hidden');
             qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.shortUrl)}`;
@@ -241,111 +240,106 @@ document.addEventListener('DOMContentLoaded', () => {
                 qrCodeImg.classList.remove('hidden');
             };
 
-            resultCard.classList.remove('hidden');
-            resultCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            successPanel.classList.remove('hidden');
+            successPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            showToast('Short link generated!', 'success');
+            showToast('Short URL generated successfully.', 'success');
             
-            // Reset Form inputs (excluding longUrl if they want to keep track)
+            // Clean up inputs
             customAliasInput.value = '';
             expirationSelect.value = 'never';
-            if (advancedSettings.classList.contains('active')) {
-                advancedSettings.classList.remove('active');
+            if (settingsAccordion.classList.contains('active')) {
+                settingsAccordion.classList.remove('active');
             }
 
-            // Reload Directory
-            fetchLinks();
+            // Refresh table view
+            loadLinks();
 
         } catch (error) {
-            console.error('Error shortening URL:', error);
-            showToast(error.message || 'Failed to shorten URL. Check formatting.', 'error');
+            console.error('API Error:', error);
+            showToast(error.message || 'Failed to shorten link.', 'error');
         } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = `
-                <span>Shorten Link</span>
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `
+                <span>Shorten URL</span>
                 <i class="fa-solid fa-arrow-right"></i>
             `;
         }
     });
 
-    // 6. Clipboard Manager
-    const copyToClipboard = (text, buttonElement) => {
+    // Copy to clipboard utility
+    const executeClipboardCopy = (text, btnElement) => {
         navigator.clipboard.writeText(text).then(() => {
-            showToast('Copied to clipboard!', 'success');
+            showToast('Copied to clipboard.', 'success');
             
-            // Temporary button animation
-            const icon = buttonElement.querySelector('i');
-            const textSpan = buttonElement.querySelector('span');
+            const icon = btnElement.querySelector('i');
+            const textSpan = btnElement.querySelector('span');
 
-            const originalIconClass = icon.className;
+            const previousClass = icon.className;
             icon.className = 'fa-solid fa-check';
-            buttonElement.style.borderColor = 'var(--color-success)';
-            buttonElement.style.color = 'var(--color-success)';
+            btnElement.classList.add('copied-success');
 
             if (textSpan) {
                 const originalText = textSpan.textContent;
                 textSpan.textContent = 'Copied!';
                 setTimeout(() => {
-                    icon.className = originalIconClass;
-                    buttonElement.style.borderColor = '';
-                    buttonElement.style.color = '';
+                    icon.className = previousClass;
+                    btnElement.classList.remove('copied-success');
                     textSpan.textContent = originalText;
-                }, 2000);
+                }, 1500);
             } else {
                 setTimeout(() => {
-                    icon.className = originalIconClass;
-                    buttonElement.style.borderColor = '';
-                    buttonElement.style.color = '';
-                }, 2000);
+                    icon.className = previousClass;
+                    btnElement.classList.remove('copied-success');
+                }, 1500);
             }
         }).catch(err => {
-            console.error('Failed to copy text: ', err);
-            showToast('Could not copy automatically', 'error');
+            console.error('Clipboard copy failed:', err);
+            showToast('Failed to copy to clipboard.', 'error');
         });
     };
 
     copyBtn.addEventListener('click', () => {
-        copyToClipboard(shortenedUrlDisplay.value, copyBtn);
+        executeClipboardCopy(shortenedUrlDisplay.value, copyBtn);
     });
 
-    // 7. Delete Action
-    const deleteLink = async (code) => {
-        if (!confirm(`Are you sure you want to delete the short link "/${code}"?`)) return;
+    // Delete link entry
+    const confirmAndDeleteLink = async (code) => {
+        if (!confirm(`Are you sure you want to delete the short URL "/${code}"?`)) return;
 
         try {
             const response = await fetch(`/api/v1/urls/${code}`, {
                 method: 'DELETE'
             });
 
-            if (!response.ok) throw new Error('Deletion failed');
+            if (!response.ok) throw new Error('Deletion request failed');
 
-            showToast('Short URL deleted successfully', 'success');
-            fetchLinks();
+            showToast('Short URL deleted successfully.', 'success');
+            loadLinks();
 
-            // Hide main results card if that was deleted
-            const currentResult = shortenedUrlDisplay.value;
-            if (currentResult && currentResult.endsWith('/' + code)) {
-                resultCard.classList.add('hidden');
+            // Clear output display if currently showing the deleted URL
+            const currentSuccessOutput = shortenedUrlDisplay.value;
+            if (currentSuccessOutput && currentSuccessOutput.endsWith('/' + code)) {
+                successPanel.classList.add('hidden');
             }
         } catch (error) {
-            console.error('Error deleting link:', error);
-            showToast('Failed to delete URL mapping', 'error');
+            console.error('API Error:', error);
+            showToast('Could not delete link mapping.', 'error');
         }
     };
 
-    // 8. Refresh & Poll
+    // Manual list refresh trigger
     refreshBtn.addEventListener('click', () => {
-        // Rotate Refresh Icon
         const icon = refreshBtn.querySelector('i');
         icon.classList.add('fa-spin');
-        fetchLinks().finally(() => {
+        loadLinks().finally(() => {
             setTimeout(() => {
                 icon.classList.remove('fa-spin');
-            }, 500);
+            }, 400);
         });
     });
 
-    // 9. Toast Notification Handler
+    // Custom Toast Notification System
     const showToast = (message, type = 'info') => {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
@@ -362,15 +356,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         container.appendChild(toast);
 
-        // Auto remove toast after 4s
         setTimeout(() => {
-            toast.style.animation = 'fade-in 0.3s reverse forwards';
+            toast.style.animation = 'fade-in 0.2s reverse forwards';
             setTimeout(() => {
                 toast.remove();
-            }, 300);
-        }, 4000);
+            }, 200);
+        }, 3000);
     };
 
-    // Initial Load
-    fetchLinks();
+    // Fetch links on bootstrap
+    loadLinks();
 });
