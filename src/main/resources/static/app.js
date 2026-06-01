@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                     <td>${dateStr}</td>
                     <td>${expiryLabel}</td>
-                    <td><span class="click-count-badge">${link.clickCount}</span></td>
+                    <td class="text-center"><span class="click-count-badge">${link.clickCount}</span></td>
                     <td class="text-right">
                         <div class="row-action-buttons">
                             <button class="btn btn-icon btn-copy-row" data-url="${link.shortUrl}" title="Copy Link">

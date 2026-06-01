@@ -536,33 +536,6 @@ body {
     min-width: 760px;
 }
 
-/* Distribute column widths proportionally */
-.table-links th:nth-child(1),
-.table-links td:nth-child(1) {
-    width: 32%; /* Short URL */
-}
-.table-links th:nth-child(2),
-.table-links td:nth-child(2) {
-    width: 33%; /* Destination URL */
-}
-.table-links th:nth-child(3),
-.table-links td:nth-child(3) {
-    width: 15%; /* Created */
-}
-.table-links th:nth-child(4),
-.table-links td:nth-child(4) {
-    width: 8%;  /* Expiry */
-}
-.table-links th:nth-child(5),
-.table-links td:nth-child(5) {
-    width: 6%;  /* Clicks */
-    text-align: center;
-}
-.table-links th:nth-child(6),
-.table-links td:nth-child(6) {
-    width: 6%;  /* Manage */
-}
-
 .table-links th, .table-links td {
     padding: 0.85rem 0.75rem;
     border-bottom: 1px solid var(--border-color);
@@ -604,8 +577,7 @@ body {
 }
 
 .destination-text-cell {
-    max-width: 0;
-    width: 100%;
+    max-width: 360px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -653,6 +625,10 @@ body {
 
 .text-right {
     text-align: right;
+}
+
+.text-center {
+    text-align: center;
 }
 
 .row-action-buttons {
